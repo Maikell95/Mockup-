@@ -1,5 +1,7 @@
 # Mockup — web del servidor
 
+**→ [Verlo aquí](https://maikell95.github.io/Mockup-/)**
+
 Prototipo navegable de la web: **wiki de mods**, **mapa en vivo** e **historia
 del servidor**.
 
