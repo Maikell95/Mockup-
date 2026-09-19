@@ -1,0 +1,4 @@
+# esbuild necesita su script de instalación para enlazar el binario nativo.
+# Declarado aquí para que CI no se pare a preguntar.
+allowBuilds:
+  esbuild: true

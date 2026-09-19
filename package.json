@@ -1,0 +1,16 @@
+{
+  "name": "nucleo-mockup",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mockup navegable de la web del servidor",
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}

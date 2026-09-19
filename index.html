@@ -1,0 +1,1473 @@
+<title>Núcleo SMP Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
+
+<style>
+  /* ─── Tokens ──────────────────────────────────────────────────────────
+     Núcleo commits to one visual world: a deepslate control panel lit by
+     torchlight. Neutrals are biased blue-slate against a copper accent. */
+  :root {
+    --bg:        #0f1219;
+    --surface:   #151a22;
+    --surface-2: #1c222c;
+    --raised:    #232a36;
+    --line:      #272f3c;
+    --line-soft: #1e2531;
+
+    --ink:       #e9e5dc;
+    --ink-dim:   #9ba2b0;
+    --ink-faint: #69717f;
+
+    --amber:     #e0913f;   /* torchlight — the single bold voice */
+    --amber-ink: #f2b673;
+    --copper:    #58a894;   /* oxidized copper — live / online */
+    --nether:    #c4553f;
+    --end:       #9a80c9;
+
+    --r-sm: 3px;
+    --r-md: 6px;
+
+    --f-display: "Silkscreen", ui-monospace, monospace;
+    --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    /* La sombra de todo el texto de la UI de Minecraft: exactamente 1 píxel
+       de la fuente (0.125em en la rejilla de Silkscreen) abajo-derecha, sin
+       desenfoque. Derivada de currentColor para que valga en hueso y en ámbar. */
+    --pixel-shadow: 0.125em 0.125em 0 color-mix(in srgb, currentColor 24%, #05070b);
+
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--amber-ink); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  :focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* ─── Titulares en píxel ──────────────────────────────────────────────
+     Silkscreen está dibujada sobre una rejilla de 1/8 em (sus anchos de
+     avance son todos múltiplos de 125 sobre 1000 unidades), así que solo se
+     ve nítida en font-size múltiplo de 8px. A 30px o 42px cada píxel del
+     diseño cae en 3,75 de pantalla, el navegador interpola y el borde sale
+     gris. De ahí los saltos discretos en vez de clamp(): un titular fluido
+     es incompatible con una fuente de píxel. */
+  h1, h2, h3, h4 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-wrap: balance;
+    margin: 0;
+    /* La fuente mide 1,28em de ascendente a descendente; por debajo se
+       recortarían las tildes de las mayúsculas. */
+    line-height: 1.3;
+    text-shadow: var(--pixel-shadow);
+  }
+
+  h1 { font-size: 24px; }
+  h2 { font-size: 16px; }
+  h3 { font-size: 16px; }
+  h4 { font-size: 16px; font-weight: 400; }
+
+  @media (min-width: 640px) {
+    h1 { font-size: 32px; }
+    h2 { font-size: 24px; }
+  }
+  @media (min-width: 1024px) {
+    h1 { font-size: 40px; }
+  }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+  /* ─── Shell ──────────────────────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 216px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "brand status" "rail stage";
+    min-height: 100dvh;
+  }
+
+  .brand {
+    grid-area: brand;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .brand-mark {
+    width: 26px; height: 26px;
+    flex: none;
+    display: grid; place-items: center;
+    background: var(--amber);
+    color: #16110a;
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 16px;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  }
+  .brand-name {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    text-shadow: var(--pixel-shadow);
+  }
+  .brand-name span { color: var(--ink-faint); font-weight: 600; }
+
+  /* status strip */
+  .status {
+    grid-area: status;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .stat { display: flex; align-items: baseline; gap: 7px; font-size: 14px; }
+  .stat-k { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+  .stat-v { font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+  .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--copper);
+    box-shadow: 0 0 0 0 rgba(88,168,148,.6);
+    animation: pulse 2.4s ease-out infinite;
+    flex: none;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(88,168,148,.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(88,168,148,0); }
+    100% { box-shadow: 0 0 0 0 rgba(88,168,148,0); }
+  }
+
+  .ip {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .ip code {
+    font-family: var(--f-mono);
+    font-size: 14px;
+    padding: 6px 11px;
+    color: var(--amber-ink);
+  }
+  .ip button {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 7px 11px;
+    border: 0;
+    border-left: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+  .ip button:hover { background: var(--raised); color: var(--ink); }
+
+  /* rail */
+  .rail {
+    grid-area: rail;
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rail-label {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 14px 10px 6px;
+  }
+  .rail button {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: var(--r-md);
+    background: none;
+    color: var(--ink-dim);
+    font-family: var(--f-body);
+    font-size: 15.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+  .rail button svg { flex: none; opacity: .8; }
+  .rail button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+  .rail button[aria-current="page"] {
+    background: var(--surface-2);
+    color: var(--ink);
+    box-shadow: inset 2px 0 0 var(--amber);
+  }
+  .rail button[aria-current="page"] svg { opacity: 1; color: var(--amber); }
+  .rail button:disabled { color: var(--ink-faint); cursor: default; opacity: .55; }
+  .soon {
+    margin-left: auto;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1px 4px;
+  }
+
+  .stage { grid-area: stage; min-width: 0; }
+  .view { display: none; }
+  .view.is-active { display: block; }
+
+  /* ─── Shared bits ────────────────────────────────────────────────── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--f-mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--line);
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .chip-amber { border-color: rgba(224,145,63,.4); color: var(--amber-ink); background: rgba(224,145,63,.08); }
+  .chip-copper { border-color: rgba(88,168,148,.4); color: var(--copper); background: rgba(88,168,148,.08); }
+
+  /* Ad placeholders — the monetization plan, drawn to scale */
+  .ad {
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-md);
+    background: repeating-linear-gradient(135deg, transparent 0 9px, rgba(255,255,255,.014) 9px 18px);
+    color: var(--ink-faint);
+    text-align: center;
+    padding: 14px;
+  }
+  .ad b { font-family: var(--f-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim); }
+  .ad small { font-size: 12.5px; line-height: 1.45; max-width: 30ch; }
+  .ad-rect { min-height: 250px; }
+  .ad-inline { min-height: 96px; }
+
+  /* ─── View: Wiki ─────────────────────────────────────────────────── */
+  .wiki {
+    display: grid;
+    grid-template-columns: 268px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .index {
+    border-right: 1px solid var(--line);
+    padding: 20px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: sticky;
+    top: 0;
+  }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: var(--r-md);
+    padding: 0 10px;
+  }
+  .search input {
+    flex: 1; min-width: 0;
+    border: 0; background: none;
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 15px;
+    padding: 8px 0;
+  }
+  .search input::placeholder { color: var(--ink-faint); }
+  .search kbd {
+    font-family: var(--f-mono); font-size: 11px;
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 1px 4px; color: var(--ink-faint);
+  }
+
+  .cats { display: flex; flex-direction: column; gap: 1px; }
+  .cats a {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 9px;
+    border-radius: var(--r-sm);
+    color: var(--ink-dim);
+    font-size: 15px;
+  }
+  .cats a:hover { background: var(--surface); color: var(--ink); text-decoration: none; }
+  .cats a[aria-current="true"] { background: var(--surface-2); color: var(--ink); }
+  .cats .dot { width: 6px; height: 6px; border-radius: 1px; flex: none; }
+  .cats .n { margin-left: auto; font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  .article {
+    padding: 28px 34px 64px;
+    max-width: 1080px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+  .crumbs { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-faint); flex-wrap: wrap; }
+  .crumbs a { color: var(--ink-dim); }
+  .crumbs span { color: var(--line); }
+
+  .mod-head { display: flex; flex-direction: column; gap: 12px; }
+    .mod-meta { display: flex; flex-wrap: wrap; gap: 7px; }
+  .lede { font-size: 19px; color: var(--ink-dim); max-width: 64ch; line-height: 1.62; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .body-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 34px;
+    align-items: start;
+  }
+  .prose { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .prose h2 {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .prose p { margin: 0; max-width: 66ch; color: var(--ink-dim); }
+  .prose p strong { color: var(--ink); font-weight: 600; }
+
+  /* server-override callout — the reason a server wiki exists at all */
+  .override {
+    border: 1px solid rgba(224,145,63,.28);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    background: rgba(224,145,63,.05);
+    padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .override h3 { font-size: 16px; font-family: var(--f-body); font-weight: 600; letter-spacing: 0; color: var(--amber-ink); text-shadow: none; }
+  .override dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14.5px; }
+  .override dt { color: var(--ink-dim); }
+  .override dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 460px; }
+  th {
+    text-align: left;
+    font-family: var(--f-mono);
+    font-size: 11.5px; font-weight: 500;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 9px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); color: var(--ink-dim); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { color: var(--ink); font-weight: 500; }
+  td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+  pre {
+    margin: 0;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--f-mono);
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--ink-dim);
+  }
+  pre .c { color: var(--ink-faint); }
+  pre .k { color: var(--amber-ink); }
+
+  .aside { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 20px; }
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .panel > header {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .panel-body { padding: 13px 14px; display: flex; flex-direction: column; gap: 9px; }
+  .rel { display: flex; flex-direction: column; gap: 2px; }
+  .rel a { display: flex; flex-direction: column; padding: 7px 8px; border-radius: var(--r-sm); }
+  .rel a:hover { background: var(--surface-2); text-decoration: none; }
+  .rel strong { font-size: 14.5px; color: var(--ink); font-weight: 500; }
+  .rel small { font-size: 12.5px; color: var(--ink-faint); }
+
+  /* ─── View: Mapa ─────────────────────────────────────────────────── */
+  .map-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 296px;
+    height: calc(100dvh - 51px);
+    min-height: 540px;
+  }
+  .canvas-wrap { position: relative; overflow: hidden; background: #0b0e13; }
+  #mapCanvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+  .dims {
+    position: absolute; top: 14px; left: 14px;
+    display: flex; gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: rgba(15,18,25,.85);
+    backdrop-filter: blur(6px);
+  }
+  .dims button {
+    font-family: var(--f-mono); font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 7px 13px; border: 0;
+    border-right: 1px solid var(--line);
+    background: none; color: var(--ink-faint); cursor: pointer;
+  }
+  .dims button:last-child { border-right: 0; }
+  .dims button:hover { color: var(--ink); }
+  .dims button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+
+  .readout {
+    position: absolute; left: 14px; bottom: 14px;
+    display: flex; gap: 14px;
+    font-family: var(--f-mono); font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-dim);
+    background: rgba(15,18,25,.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 5px 11px;
+  }
+  .readout b { color: var(--ink-faint); font-weight: 500; }
+
+  .live-badge {
+    position: absolute; right: 14px; top: 14px;
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--f-mono); font-size: 12px;
+    letter-spacing: 0.07em;
+    color: var(--ink-dim);
+    background: rgba(15,18,25,.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 5px 11px;
+  }
+
+  .map-side {
+    border-left: 1px solid var(--line);
+    background: var(--surface);
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .side-sec { padding: 15px 16px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 11px; }
+  .side-sec:last-child { border-bottom: 0; }
+  .side-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+
+  .players { display: flex; flex-direction: column; gap: 1px; }
+  .prow {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: var(--r-sm);
+    border: 0; width: 100%;
+    background: none; color: inherit;
+    font-family: var(--f-body); text-align: left; cursor: pointer;
+  }
+  .prow:hover, .prow.is-hot { background: var(--surface-2); }
+  .prow.is-hot { box-shadow: inset 2px 0 0 var(--amber); }
+  .skin { width: 26px; height: 26px; border-radius: 2px; flex: none; image-rendering: pixelated; }
+  .pname { font-size: 14.5px; font-weight: 500; color: var(--ink); }
+  .pcoord { font-family: var(--f-mono); font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .hearts { display: flex; gap: 2px; align-items: center; }
+  .heart { width: 5px; height: 5px; border-radius: 1px; background: var(--nether); }
+  .heart.off { background: var(--line); }
+
+  .toggles { display: flex; flex-direction: column; gap: 3px; }
+  .toggle {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 8px; border-radius: var(--r-sm);
+    font-size: 14.5px; color: var(--ink-dim); cursor: pointer;
+  }
+  .toggle:hover { background: var(--surface-2); }
+  .toggle input { accent-color: var(--amber); width: 14px; height: 14px; cursor: pointer; }
+  .toggle .n { margin-left: auto; font-family: var(--f-mono); font-size: 12px; color: var(--ink-faint); }
+  .glyph { width: 9px; height: 9px; flex: none; }
+
+
+  /* ─── Texto que rebota cuando no cabe ──────────────────────────────────
+     Solo se mueve si sobra texto de verdad (lo marca el JS con [data-moves]),
+     y se para en los dos extremos: 18 % quieto, 32 % de ida, 18 % quieto,
+     32 % de vuelta. Si no se detuviera al final, el trozo que justamente
+     querías leer sería el único que nunca está quieto. */
+  .marquee { display: block; overflow: hidden; white-space: nowrap; }
+  .marquee-track { display: inline-block; white-space: nowrap; }
+  .marquee[data-moves] .marquee-track {
+    animation: marquee-bounce var(--marquee-duration) linear infinite;
+    will-change: transform;
+  }
+  @keyframes marquee-bounce {
+    0%, 18%  { transform: translateX(0); }
+    50%, 68% { transform: translateX(calc(-1 * var(--marquee-distance))); }
+    100%     { transform: translateX(0); }
+  }
+
+  /* ─── View: Historia ─────────────────────────────────────────────── */
+  .hist { padding: 34px 34px 72px; max-width: 940px; display: flex; flex-direction: column; gap: 30px; }
+  .hist-head { display: flex; flex-direction: column; gap: 12px; }
+    .provisional {
+    display: flex; gap: 11px; align-items: flex-start;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-md);
+    padding: 13px 15px;
+    font-size: 14.5px; color: var(--ink-dim);
+    max-width: 72ch;
+  }
+  .provisional b { color: var(--amber-ink); font-weight: 600; }
+
+  .era { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 0; }
+  .era-rail { position: relative; padding-right: 26px; }
+  .era-rail::after {
+    content: ""; position: absolute; right: 0; top: 6px; bottom: -30px;
+    width: 1px; background: var(--line);
+  }
+  .era:last-child .era-rail::after { bottom: 0; }
+  .era-rail .marker {
+    position: absolute; right: -4px; top: 5px;
+    width: 9px; height: 9px; background: var(--amber);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  }
+  .era-when { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-faint); text-align: right; letter-spacing: 0.04em; }
+  .era-body { padding: 0 0 34px 26px; display: flex; flex-direction: column; gap: 14px; }
+  .era-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  
+  .era-sub { color: var(--ink-dim); font-size: 16px; max-width: 64ch; margin: 0; }
+
+  .events { display: flex; flex-direction: column; gap: 1px; }
+  .event {
+    display: grid;
+    grid-template-columns: 92px 8px minmax(0, 1fr);
+    gap: 14px;
+    align-items: baseline;
+    padding: 9px 10px;
+    border-radius: var(--r-sm);
+  }
+  .event:hover { background: var(--surface); }
+  .ev-date { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .ev-kind { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+  .ev-text { font-size: 15px; color: var(--ink-dim); }
+  .ev-text b { color: var(--ink); font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; padding-top: 4px; }
+  .legend span { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-faint); }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; }
+
+  .hist-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+  .hist-stats div { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+  .hist-stats b { font-family: var(--f-mono); font-size: 24px; font-weight: 600; color: var(--amber-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+  /* ─── Responsive ─────────────────────────────────────────────────── */
+  @media (max-width: 1180px) {
+    .body-grid { grid-template-columns: minmax(0, 1fr); }
+    .aside { position: static; flex-direction: row; flex-wrap: wrap; }
+    .aside > * { flex: 1 1 280px; }
+  }
+  @media (max-width: 980px) {
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "brand" "status" "rail" "stage"; }
+    .brand, .rail { border-right: 0; }
+    .rail {
+      flex-direction: row;
+      overflow-x: auto;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      gap: 4px;
+    }
+    .rail-label, .rail button:disabled { display: none; }
+    .rail button { width: auto; white-space: nowrap; }
+    .wiki { grid-template-columns: minmax(0, 1fr); }
+    .index { position: static; border-right: 0; border-bottom: 1px solid var(--line); }
+    .map-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: 58dvh minmax(0, 1fr); height: auto; }
+    .map-side { border-left: 0; border-top: 1px solid var(--line); }
+    .article, .hist { padding: 22px 18px 56px; }
+    .status { padding: 10px 18px; }
+  }
+  @media (max-width: 560px) {
+    .era { grid-template-columns: minmax(0, 1fr); }
+    .era-rail { padding: 0 0 10px; display: flex; gap: 8px; align-items: center; }
+    .era-rail::after { display: none; }
+    .era-rail .marker { position: static; }
+    .era-when { text-align: left; }
+    .era-body { padding: 0 0 30px; }
+    .event { grid-template-columns: 8px minmax(0, 1fr); gap: 10px; }
+    .ev-date { grid-column: 1 / -1; }
+    .ip { margin-left: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none; }
+    .marquee[data-moves] .marquee-track { animation: none; }
+    .marquee { overflow-x: auto; scrollbar-width: none; }
+  }
+</style>
+
+<div class="app">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">N</div>
+    <div class="brand-name">NÚCLEO <span>SMP</span></div>
+  </div>
+
+  <div class="status">
+    <div class="stat"><span class="pulse" aria-hidden="true"></span><span class="stat-v" id="onlineCount">34</span><span class="stat-k">/ 120 conectados</span></div>
+    <div class="stat"><span class="stat-k">TPS</span><span class="stat-v" id="tps">19.9</span></div>
+    <div class="stat"><span class="stat-k">MSPT</span><span class="stat-v">31.4</span></div>
+    <div class="stat"><span class="stat-k">Modpack</span><span class="stat-v">Núcleo v2.4.1</span></div>
+    <div class="stat"><span class="stat-k">NeoForge</span><span class="stat-v">1.21.1</span></div>
+    <div class="ip">
+      <code>play.nucleo.gg</code>
+      <button type="button" id="copyIp">Copiar</button>
+    </div>
+  </div>
+
+  <nav class="rail" aria-label="Secciones del sitio">
+    <div class="rail-label">Servidor</div>
+    <button type="button" data-view="wiki" aria-current="page">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.2v9.6c0 0 1.8-1 5.5-1V2.2c-3.7 0-5.5 1-5.5 1Z"/><path d="M13.5 3.2v9.6c0 0-1.8-1-5.5-1V2.2c3.7 0 5.5 1 5.5 1Z"/></svg>
+      Wiki de mods
+    </button>
+    <button type="button" data-view="mapa">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m1.8 4 4.2-1.8L10 4l4.2-1.8v9.8L10 13.8 6 12 1.8 13.8V4Z"/><path d="M6 2.2V12M10 4v9.8"/></svg>
+      Mapa en vivo
+    </button>
+    <button type="button" data-view="historia">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.3 1.6"/></svg>
+      Historia
+    </button>
+
+    <div class="rail-label">Próximamente</div>
+    <button type="button" disabled>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.6 4.4h10.8l-1 7.4a1.4 1.4 0 0 1-1.4 1.2H5a1.4 1.4 0 0 1-1.4-1.2l-1-7.4Z"/><path d="M5.8 6.4V4a2.2 2.2 0 0 1 4.4 0v2.4"/></svg>
+      Tienda <span class="soon">v2</span>
+    </button>
+    <button type="button" disabled>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m8 2 1.8 3.9 4.2.5-3.1 2.9.8 4.2L8 11.5 4.3 13.5l.8-4.2L2 6.4l4.2-.5L8 2Z"/></svg>
+      Votaciones <span class="soon">v2</span>
+    </button>
+    <button type="button" disabled>
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.6"/><path d="M2.8 13.6a5.2 5.2 0 0 1 10.4 0"/></svg>
+      Mi perfil <span class="soon">v3</span>
+    </button>
+  </nav>
+
+  <main class="stage">
+
+    <!-- ═══ VISTA 1 · WIKI ═══════════════════════════════════════════ -->
+    <section class="view is-active" id="view-wiki" aria-label="Wiki de mods">
+      <div class="wiki">
+        <aside class="index">
+          <div class="search">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--ink-faint)" stroke-width="1.5"><circle cx="7" cy="7" r="4.6"/><path d="m10.4 10.4 3 3"/></svg>
+            <input id="wikiSearch" type="search" placeholder="Buscar mod, receta o bloque…" aria-label="Buscar en la wiki">
+            <kbd>/</kbd>
+          </div>
+
+          <div>
+            <div class="eyebrow" style="padding-bottom:8px">71 mods documentados</div>
+            <nav class="cats" aria-label="Categorías de mods">
+              <a href="#" aria-current="true"><i class="dot" style="background:var(--amber)"></i>Tecnología<span class="n">14</span></a>
+              <a href="#"><i class="dot" style="background:var(--end)"></i>Magia<span class="n">9</span></a>
+              <a href="#"><i class="dot" style="background:var(--copper)"></i>Mundo y biomas<span class="n">11</span></a>
+              <a href="#"><i class="dot" style="background:#6f8fc4"></i>Calidad de vida<span class="n">23</span></a>
+              <a href="#"><i class="dot" style="background:#b5854f"></i>Decoración<span class="n">8</span></a>
+              <a href="#"><i class="dot" style="background:var(--nether)"></i>Mobs y combate<span class="n">6</span></a>
+            </nav>
+          </div>
+
+          <div>
+            <div class="eyebrow" style="padding-bottom:8px">En Tecnología</div>
+            <nav class="cats" aria-label="Mods de tecnología">
+              <a href="#" aria-current="true">Create<span class="n">v0.5.1.f</span></a>
+              <a href="#">Create: Steam 'n' Rails<span class="n">v1.6.6</span></a>
+              <a href="#">Applied Energistics 2<span class="n">v19.1.3</span></a>
+              <a href="#">Immersive Engineering<span class="n">v11.1.0</span></a>
+              <a href="#">Mekanism<span class="n">v10.7.8</span></a>
+              <a href="#">Modular Routers<span class="n">v12.1.4</span></a>
+            </nav>
+          </div>
+
+          <!-- Formato 300×250, encima del pliegue en desktop -->
+          <div class="ad ad-rect">
+            <b>300 × 250</b>
+            <small>AdSense · barra lateral. Altura reservada para que no haya salto de layout (CLS).</small>
+          </div>
+        </aside>
+
+        <article class="article">
+          <nav class="crumbs" aria-label="Ruta">
+            <a href="#">Wiki</a><span>/</span><a href="#">Tecnología</a><span>/</span>Create
+          </nav>
+
+          <header class="mod-head">
+            <div class="eyebrow">Mod de automatización · cinético</div>
+            <h1>Create</h1>
+            <div class="mod-meta">
+              <span class="chip chip-amber">v0.5.1.f</span>
+              <span class="chip">simibubi</span>
+              <span class="chip">Cliente + servidor</span>
+              <span class="chip chip-copper">Config modificada por el servidor</span>
+              <span class="chip">Actualizado 04 sep 2026</span>
+            </div>
+            <p class="lede">
+              Create sustituye la energía por <strong>fuerza rotacional</strong>: los engranajes transmiten
+              velocidad y el sistema se rompe si pides más <strong>esfuerzo (SU)</strong> del que generas.
+              Todo lo que construyas es visible y se mueve — es el mod con el que se hicieron el elevador
+              del spawn y la red de trenes de Núcleo.
+            </p>
+          </header>
+
+          <div class="body-grid">
+            <div class="prose">
+              <section>
+                <h2>Primeros pasos</h2>
+                <p>
+                  Empieza por una <strong>rueda hidráulica</strong> sobre agua corriente: da 32 SU a 8 RPM
+                  sin consumir combustible y es suficiente para tus primeras tres máquinas. Conecta ejes,
+                  y usa la <strong>llave inglesa</strong> para rotar bloques y el <strong>destornillador</strong>
+                  para copiar configuraciones entre embudos.
+                </p>
+                <p>
+                  Cada bloque del mod tiene una explicación animada dentro del juego. Apunta al bloque en el
+                  inventario y pulsa <strong>W</strong> para abrir su Ponder — es más rápido que cualquier wiki,
+                  esta incluida.
+                </p>
+              </section>
+
+              <section>
+                <h2>Generadores y coste de esfuerzo</h2>
+                <div class="tbl-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Fuente / máquina</th><th>Tipo</th><th class="num">SU a 16 RPM</th><th class="num">RPM máx.</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>Rueda hidráulica</td><td>Genera</td><td class="num">+64</td><td class="num">8</td></tr>
+                      <tr><td>Rueda hidráulica grande</td><td>Genera</td><td class="num">+512</td><td class="num">16</td></tr>
+                      <tr><td>Motor de vapor (caldera nv. 4)</td><td>Genera</td><td class="num">+4 096</td><td class="num">256</td></tr>
+                      <tr><td>Prensa mecánica</td><td>Consume</td><td class="num">−128</td><td class="num">256</td></tr>
+                      <tr><td>Batidora mecánica</td><td>Consume</td><td class="num">−256</td><td class="num">256</td></tr>
+                      <tr><td>Sierra mecánica</td><td>Consume</td><td class="num">−64</td><td class="num">256</td></tr>
+                      <tr><td>Mezcladora</td><td>Consume</td><td class="num">−512</td><td class="num">256</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p>
+                  El SU se reparte por <strong>red</strong>, no por máquina: si el total consumido supera al
+                  generado, la red entera se para. Divide en varias redes independientes antes que perseguir
+                  un único motor gigante.
+                </p>
+              </section>
+
+              <!-- Anuncio in-article: después de la 2ª sección, nunca sobre la primera pantalla -->
+              <div class="ad ad-inline">
+                <b>Responsive · in-article</b>
+                <small>Se inserta tras la segunda sección. Carga diferida al hacer scroll.</small>
+              </div>
+
+              <section>
+                <h2>Reglas de Núcleo</h2>
+                <div class="override">
+                  <h3>Esta config difiere de la de Create por defecto</h3>
+                  <dl>
+                    <dt>Límite de esfuerzo por red</dt><dd>8 192 SU</dd>
+                    <dt>Bloques por contraption</dt><dd>2 048</dd>
+                    <dt>Vagones por tren</dt><dd>24</dd>
+                    <dt>Perforadoras en chunks cargados</dt><dd>desactivadas</dd>
+                    <dt>Explosivos de Create fuera de tu claim</dt><dd>bloqueados</dd>
+                  </dl>
+                  <p style="margin:0;font-size:13px;color:var(--ink-dim)">
+                    Los límites existen porque las contraptions grandes se calculan cada tick.
+                    Si tu proyecto necesita más, pídelo en <a href="#">#soporte-técnico</a>.
+                  </p>
+                </div>
+              </section>
+
+              <section>
+                <h2>Comandos útiles</h2>
+                <pre><span class="c"># Repetir la explicación animada de un bloque</span>
+<span class="k">/ponder</span> create:mechanical_press
+
+<span class="c"># Ver el esfuerzo de la red a la que apuntas (solo staff)</span>
+<span class="k">/create</span> overlay
+
+<span class="c"># Tu cuota de contraptions activas</span>
+<span class="k">/nucleo</span> limites create</pre>
+              </section>
+            </div>
+
+            <aside class="aside">
+              <div class="panel">
+                <header><div class="eyebrow">Depende de</div></header>
+                <div class="panel-body">
+                  <div class="rel">
+                    <a href="#"><strong>Flywheel</strong><small>Renderizado · incluido en el pack</small></a>
+                    <a href="#"><strong>Ponder</strong><small>Guías en el juego · incluido</small></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <header><div class="eyebrow">Se usa junto a</div></header>
+                <div class="panel-body">
+                  <div class="rel">
+                    <a href="#"><strong>Create: Steam 'n' Rails</strong><small>Trenes y señales — la red del spawn</small></a>
+                    <a href="#"><strong>Applied Energistics 2</strong><small>Almacenamiento en red</small></a>
+                    <a href="#"><strong>Farmer's Delight</strong><small>Cultivos automatizables</small></a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <header><div class="eyebrow">Páginas de esta guía</div></header>
+                <div class="panel-body">
+                  <div class="rel">
+                    <a href="#"><strong>Trenes paso a paso</strong><small>12 min de lectura</small></a>
+                    <a href="#"><strong>Granja de hierro con Create</strong><small>8 min</small></a>
+                    <a href="#"><strong>Errores comunes de SU</strong><small>5 min</small></a>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ═══ VISTA 2 · MAPA ═══════════════════════════════════════════ -->
+    <section class="view" id="view-mapa" aria-label="Mapa en vivo">
+      <div class="map-view">
+        <div class="canvas-wrap">
+          <canvas id="mapCanvas"></canvas>
+
+          <div class="dims" role="group" aria-label="Dimensión">
+            <button type="button" data-dim="overworld" aria-pressed="true">Overworld</button>
+            <button type="button" data-dim="nether" aria-pressed="false">Nether</button>
+            <button type="button" data-dim="end" aria-pressed="false">End</button>
+          </div>
+
+          <div class="live-badge">
+            <span class="pulse" aria-hidden="true"></span>
+            <span>En vivo · <span id="lag">1</span> s</span>
+          </div>
+
+          <div class="readout">
+            <span><b>X</b> <span id="curX">—</span></span>
+            <span><b>Z</b> <span id="curZ">—</span></span>
+            <span><b>Chunk</b> <span id="curChunk">—</span></span>
+            <span><b>Escala</b> 1 : 8</span>
+          </div>
+        </div>
+
+        <aside class="map-side">
+          <div class="side-sec">
+            <div class="side-head">
+              <div class="eyebrow">Jugadores visibles</div>
+              <span class="mono" style="font-size:12px;color:var(--ink-faint)"><span id="visCount">9</span> de 34</span>
+            </div>
+            <div class="players" id="playerList"></div>
+            <p style="margin:0;font-size:11.5px;color:var(--ink-faint);line-height:1.5">
+              Quien esté en modo espectador, invisible o agachado no aparece en el mapa.
+              Se puede ocultar permanentemente con <span class="mono">/mapa ocultar</span>.
+            </p>
+          </div>
+
+          <div class="side-sec">
+            <div class="eyebrow">Marcadores</div>
+            <div class="toggles">
+              <label class="toggle"><input type="checkbox" id="mk-base" checked><svg class="glyph" viewBox="0 0 10 10"><path d="M5 0l5 5-5 5-5-5z" fill="var(--amber)"/></svg>Bases de clan<span class="n">18</span></label>
+              <label class="toggle"><input type="checkbox" id="mk-warp" checked><svg class="glyph" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.2" fill="none" stroke="var(--copper)" stroke-width="2"/></svg>Warps públicos<span class="n">7</span></label>
+              <label class="toggle"><input type="checkbox" id="mk-shop" checked><svg class="glyph" viewBox="0 0 10 10"><rect x="0.8" y="0.8" width="8.4" height="8.4" fill="#6f8fc4"/></svg>Tiendas<span class="n">23</span></label>
+              <label class="toggle"><input type="checkbox" id="mk-rail"><svg class="glyph" viewBox="0 0 10 10"><path d="M0 5h10" stroke="#b5854f" stroke-width="2.4"/></svg>Vías de tren<span class="n">14</span></label>
+              <label class="toggle"><input type="checkbox" id="mk-claim"><svg class="glyph" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="var(--end)" stroke-width="1.6" stroke-dasharray="2.5 1.8"/></svg>Claims<span class="n">96</span></label>
+            </div>
+          </div>
+
+          <div class="side-sec">
+            <div class="eyebrow">Estado del render</div>
+            <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px">
+              <dt style="color:var(--ink-dim)">Fuente</dt><dd class="mono" style="margin:0">BlueMap 5.12</dd>
+              <dt style="color:var(--ink-dim)">Última pasada</dt><dd class="mono" style="margin:0">hace 4 min</dd>
+              <dt style="color:var(--ink-dim)">Chunks en cola</dt><dd class="mono" style="margin:0">1 284</dd>
+              <dt style="color:var(--ink-dim)">Posiciones</dt><dd class="mono" style="margin:0">cada 1 s</dd>
+            </dl>
+          </div>
+
+          <div class="side-sec">
+            <div class="ad ad-inline" style="min-height:120px">
+              <b>Anuncio · fuera del lienzo</b>
+              <small>Nunca sobre el mapa: un anuncio encima de un elemento interactivo genera clics accidentales y suspensiones de AdSense.</small>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ═══ VISTA 3 · HISTORIA ═══════════════════════════════════════ -->
+    <section class="view" id="view-historia" aria-label="Historia del servidor">
+      <div class="hist">
+        <header class="hist-head">
+          <div class="eyebrow">Crónica del servidor · 2024 — hoy</div>
+          <h1>Cuatro temporadas de Núcleo</h1>
+          <p class="lede" style="max-width:66ch">
+            Cada temporada es un mundo nuevo y un modpack nuevo. Lo que sobrevive entre una y otra
+            son los nombres, las rencillas y un puñado de construcciones que copiamos con
+            <span class="mono" style="font-size:13px">/schematic</span> antes del reinicio.
+          </p>
+          <div class="provisional">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="var(--amber)" stroke-width="1.5" style="flex:none;margin-top:3px"><path d="M8 2.4 14.4 13.6H1.6L8 2.4Z"/><path d="M8 6.6v3"/><circle cx="8" cy="11.4" r=".7" fill="var(--amber)" stroke="none"/></svg>
+            <span>
+              <b>Estructura provisional.</b> Cada entrada es <span class="mono" style="font-size:12.5px">{ fecha, tipo, titular, cuerpo, protagonistas[], coords? }</span>
+              y las temporadas son solo contenedores. Sirve igual para un diario de eventos, una línea narrativa de
+              lore o un muro de récords — decidimos el tono cuando el contenido esté escrito, sin tocar el modelo.
+            </span>
+          </div>
+        </header>
+
+        <div class="hist-stats">
+          <div><b>4</b><span class="eyebrow">temporadas</span></div>
+          <div><b>1 907</b><span class="eyebrow">jugadores únicos</span></div>
+          <div><b>61</b><span class="eyebrow">eventos registrados</span></div>
+          <div><b>412 d</b><span class="eyebrow">temporada más larga</span></div>
+        </div>
+
+        <div class="legend">
+          <span><i style="background:var(--copper)"></i>Hito de la comunidad</span>
+          <span><i style="background:var(--amber)"></i>Construcción</span>
+          <span><i style="background:var(--nether)"></i>Conflicto</span>
+          <span><i style="background:#6f8fc4"></i>Actualización técnica</span>
+          <span><i style="background:var(--end)"></i>Evento</span>
+        </div>
+
+        <div>
+          <section class="era">
+            <div class="era-rail"><span class="marker" aria-hidden="true"></span><div class="era-when">Temporada 4<br>mar 2026 — hoy</div></div>
+            <div class="era-body">
+              <div class="era-title"><h2>La Vía Férrea</h2><span class="chip chip-copper">En curso · día 187</span></div>
+              <p class="era-sub">Mundo de 12 000 blocs de radio y una regla nueva: no hay teletransporte. Si quieres llegar a algún sitio, alguien tiene que construir el camino.</p>
+              <div class="events">
+                <div class="event"><span class="ev-date">14 mar 2026</span><i class="ev-kind" style="background:var(--copper)"></i><span class="ev-text"><b>Apertura de la temporada.</b> 214 jugadores en las primeras 24 h, récord del servidor.</span></div>
+                <div class="event"><span class="ev-date">02 may 2026</span><i class="ev-kind" style="background:var(--amber)"></i><span class="ev-text"><b>Estación Central</b> terminada en el spawn tras seis semanas y 41 000 bloques de andamio. <span class="mono" style="font-size:12px;color:var(--ink-faint)">X 128 · Z −64</span></span></div>
+                <div class="event"><span class="ev-date">19 jun 2026</span><i class="ev-kind" style="background:var(--nether)"></i><span class="ev-text"><b>La Disputa del Cruce Norte.</b> Dos clanes reclaman el mismo nudo ferroviario; se resuelve con una subasta pública de la parcela.</span></div>
+                <div class="event"><span class="ev-date">03 ago 2026</span><i class="ev-kind" style="background:#6f8fc4"></i><span class="ev-text">Migración a <b>NeoForge 1.21.1</b> y modpack v2.4. Doce horas de caída, cero pérdidas de chunk.</span></div>
+                <div class="event"><span class="ev-date">04 sep 2026</span><i class="ev-kind" style="background:var(--end)"></i><span class="ev-text"><b>Primera Feria de Otoño</b> en la Estación Central: 23 tiendas, 1.4 M de esmeraldas movidas.</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="era">
+            <div class="era-rail"><span class="marker" aria-hidden="true"></span><div class="era-when">Temporada 3<br>ene 2025 — feb 2026</div></div>
+            <div class="era-body">
+              <div class="era-title"><h2>El Año del Vapor</h2><span class="chip">412 días</span></div>
+              <p class="era-sub">La temporada más larga y la que definió el servidor: automatización pesada, economía de esmeraldas y la primera guerra por recursos que terminó en tratado escrito.</p>
+              <div class="events">
+                <div class="event"><span class="ev-date">08 ene 2025</span><i class="ev-kind" style="background:var(--copper)"></i><span class="ev-text">Arranque con Create como eje del pack. <b>Se prohíben las quarries</b> y nace la economía de mineral.</span></div>
+                <div class="event"><span class="ev-date">27 abr 2025</span><i class="ev-kind" style="background:var(--amber)"></i><span class="ev-text"><b>La Fundición</b>, primera fábrica comunitaria: 4 096 SU repartidos entre nueve bases.</span></div>
+                <div class="event"><span class="ev-date">11 sep 2025</span><i class="ev-kind" style="background:var(--nether)"></i><span class="ev-text"><b>Guerra del Cuarzo.</b> Tres semanas de bloqueo en el Nether; acaba con el Tratado del Portal Rojo, todavía vigente.</span></div>
+                <div class="event"><span class="ev-date">28 feb 2026</span><i class="ev-kind" style="background:var(--end)"></i><span class="ev-text">Cierre del mundo. El mapa completo queda navegable en <a href="#">el archivo</a>.</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="era">
+            <div class="era-rail"><span class="marker" aria-hidden="true"></span><div class="era-when">Temporadas 1–2<br>feb 2024 — dic 2024</div></div>
+            <div class="era-body">
+              <div class="era-title"><h2>Los primeros inviernos</h2><span class="chip">archivado</span></div>
+              <p class="era-sub">Doce personas, un VPS compartido y un modpack de 40 mods. Casi nada se documentó — esta sección es, sobre todo, lo que recordamos.</p>
+              <div class="events">
+                <div class="event"><span class="ev-date">17 feb 2024</span><i class="ev-kind" style="background:var(--copper)"></i><span class="ev-text"><b>Primer arranque.</b> Doce jugadores del mismo Discord.</span></div>
+                <div class="event"><span class="ev-date">30 jun 2024</span><i class="ev-kind" style="background:#6f8fc4"></i><span class="ev-text">Se migra de Forge a <b>Paper + Fabric</b> y el servidor deja de caerse cada domingo.</span></div>
+                <div class="event"><span class="ev-date">22 dic 2024</span><i class="ev-kind" style="background:var(--amber)"></i><span class="ev-text">El <b>Faro del Norte</b> se salva del reinicio y se replanta en cada mundo desde entonces.</span></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="ad ad-inline">
+          <b>Responsive · fin de artículo</b>
+          <small>El bloque de cierre es el que mejor rinde en páginas largas de lectura.</small>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+
+  /* ── Rebote de texto que no cabe ──────────────────────────────────
+     Velocidad constante en px/s, no duración fija: con duración fija un
+     texto el doble de largo iría al doble de rápido y sería ilegible. */
+  var REBOTE_VELOCIDAD = 45, REBOTE_RECORRIDO = 0.32, REBOTE_MAX = 22;
+
+  function prepararRebote(el) {
+    if (el.querySelector(".marquee-track")) return;
+    var track = document.createElement("span");
+    track.className = "marquee-track";
+    while (el.firstChild) track.appendChild(el.firstChild);
+    el.appendChild(track);
+    el.classList.add("marquee");
+    if (!el.title) el.title = track.textContent;
+  }
+
+  function aplicarRebote(raiz) {
+    (raiz || document).querySelectorAll(".marquee").forEach(function (vp) {
+      var track = vp.querySelector(".marquee-track");
+      // Un elemento en una vista oculta mide 0 y daria un desbordamiento
+      // falso enorme; se mide cuando su vista esté visible.
+      if (!track || !vp.clientWidth) return;
+      var d = track.scrollWidth - vp.clientWidth;
+      if (d > 1) {
+        vp.setAttribute("data-moves", "");
+        vp.style.setProperty("--marquee-distance", d + "px");
+        vp.style.setProperty(
+          "--marquee-duration",
+          Math.min(REBOTE_MAX, d / REBOTE_VELOCIDAD / REBOTE_RECORRIDO).toFixed(2) + "s"
+        );
+      } else {
+        vp.removeAttribute("data-moves");
+      }
+    });
+  }
+
+  /* ── Navegación entre vistas ──────────────────────────────────── */
+  var railBtns = document.querySelectorAll(".rail button[data-view]");
+  var views = document.querySelectorAll(".view");
+  var mapStarted = false;
+
+  function show(name) {
+    railBtns.forEach(function (b) {
+      if (b.dataset.view === name) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
+    });
+    views.forEach(function (v) { v.classList.toggle("is-active", v.id === "view-" + name); });
+    if (name === "mapa" && !mapStarted) { mapStarted = true; startMap(); }
+    if (name === "mapa") resizeCanvas();
+    aplicarRebote();
+  }
+  railBtns.forEach(function (b) {
+    b.addEventListener("click", function () { show(b.dataset.view); });
+  });
+
+  /* ── Copiar IP ────────────────────────────────────────────────── */
+  var copyBtn = document.getElementById("copyIp");
+  copyBtn.addEventListener("click", function () {
+    var done = function () {
+      copyBtn.textContent = "Copiada";
+      setTimeout(function () { copyBtn.textContent = "Copiar"; }, 1600);
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText("play.nucleo.gg").then(done, done);
+    else done();
+  });
+
+  /* ── Atajo "/" hacia el buscador de la wiki ───────────────────── */
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement.tagName !== "INPUT") {
+      e.preventDefault();
+      show("wiki");
+      document.getElementById("wikiSearch").focus();
+    }
+  });
+
+  /* ══ MAPA ═════════════════════════════════════════════════════════
+     Terreno generado con ruido de valor sobre un canvas offscreen y
+     redibujado solo al cambiar de dimensión o tamaño. Los jugadores se
+     pintan cada frame encima — que es exactamente cómo se comporta un
+     visor real: teselas cacheadas + capa viva a 1 Hz.                */
+
+  var canvas = document.getElementById("mapCanvas");
+  var ctx = canvas.getContext("2d");
+  var terrain = document.createElement("canvas");
+  var tctx = terrain.getContext("2d");
+
+  var W = 0, H = 0, dpr = 1;
+  var WORLD = 3000;            // el lienzo cubre -3000..3000 en X y Z
+  var dim = "overworld";
+
+  var PALETTES = {
+    overworld: {
+      bg: "#0b0e13",
+      bands: [
+        [0.00, "#111d2c"], [0.34, "#132a3a"], [0.42, "#2a3f34"],
+        [0.55, "#32492f"], [0.68, "#3c4a31"], [0.80, "#4a4a3c"], [1.00, "#6a6a63"]
+      ],
+      grid: "rgba(150,175,200,.055)"
+    },
+    nether: {
+      bg: "#120809",
+      bands: [
+        [0.00, "#2a0f0c"], [0.36, "#3d1410"], [0.48, "#54211a"],
+        [0.62, "#6a2c1e"], [0.76, "#7d3a22"], [1.00, "#9c5730"]
+      ],
+      grid: "rgba(255,160,120,.05)"
+    },
+    end: {
+      bg: "#07060d",
+      bands: [
+        [0.00, "#0b0914"], [0.40, "#171335"], [0.52, "#2a2350"],
+        [0.66, "#3b3163"], [0.82, "#4e4478"], [1.00, "#6d5f96"]
+      ],
+      grid: "rgba(180,160,230,.05)"
+    }
+  };
+
+  function hash2(x, y, seed) {
+    var h = x * 374761393 + y * 668265263 + seed * 2246822519;
+    h = (h ^ (h >> 13)) | 0;
+    h = Math.imul(h, 1274126177);
+    return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+  }
+  function smooth(t) { return t * t * (3 - 2 * t); }
+  function noise(x, y, seed) {
+    var xi = Math.floor(x), yi = Math.floor(y);
+    var xf = smooth(x - xi), yf = smooth(y - yi);
+    var a = hash2(xi, yi, seed), b = hash2(xi + 1, yi, seed);
+    var c = hash2(xi, yi + 1, seed), d = hash2(xi + 1, yi + 1, seed);
+    return (a + (b - a) * xf) + ((c + (d - c) * xf) - (a + (b - a) * xf)) * yf;
+  }
+  function fbm(x, y, seed) {
+    var v = 0, amp = 0.5, f = 1;
+    for (var i = 0; i < 5; i++) { v += noise(x * f, y * f, seed + i * 17) * amp; amp *= 0.5; f *= 2.05; }
+    return v;
+  }
+  function band(v, bands) {
+    for (var i = bands.length - 1; i >= 0; i--) if (v >= bands[i][0]) return bands[i][1];
+    return bands[0][1];
+  }
+
+  var SEEDS = { overworld: 7, nether: 41, end: 93 };
+
+  function drawTerrain() {
+    var pal = PALETTES[dim];
+    var step = 4;                                  // tesela de 4 px lógicos
+    var cols = Math.ceil(W / step), rows = Math.ceil(H / step);
+    terrain.width = W * dpr; terrain.height = H * dpr;
+    tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tctx.fillStyle = pal.bg;
+    tctx.fillRect(0, 0, W, H);
+
+    for (var cy = 0; cy < rows; cy++) {
+      for (var cx = 0; cx < cols; cx++) {
+        var v = fbm(cx / 26, cy / 26, SEEDS[dim]);
+        v = Math.min(1, Math.max(0, (v - 0.18) * 1.75));
+        tctx.fillStyle = band(v, pal.bands);
+        tctx.fillRect(cx * step, cy * step, step, step);
+      }
+    }
+
+    // rejilla de regiones (512 bloques) — la unidad real de un archivo .mca
+    tctx.strokeStyle = pal.grid;
+    tctx.lineWidth = 1;
+    var gpx = (512 / (WORLD * 2)) * Math.min(W, H) * 2;
+    tctx.beginPath();
+    for (var gx = (W / 2) % gpx; gx < W; gx += gpx) { tctx.moveTo(Math.round(gx) + .5, 0); tctx.lineTo(Math.round(gx) + .5, H); }
+    for (var gy = (H / 2) % gpx; gy < H; gy += gpx) { tctx.moveTo(0, Math.round(gy) + .5); tctx.lineTo(W, Math.round(gy) + .5); }
+    tctx.stroke();
+  }
+
+  /* ── Datos simulados ──────────────────────────────────────────── */
+  var SKIN = ["#8b6b4a", "#5f7fa8", "#9c5f5f", "#6f9c6a", "#8a7fa8", "#a88d5f", "#5f8f9c", "#a3706b", "#6b7f5f"];
+  var players = [
+    { n: "Aritz_",        hp: 20, bio: "Bosque de abedules" },
+    { n: "Mireia",        hp: 17, bio: "Meseta salvaje" },
+    { n: "elgatoazul",    hp: 20, bio: "Océano helado" },
+    { n: "Tornillo_99",   hp: 12, bio: "Cueva frondosa" },
+    { n: "Nerea.b",       hp: 20, bio: "Llanura" },
+    { n: "kraken",        hp: 8,  bio: "Barranco" },
+    { n: "Pau_Ferrer",    hp: 20, bio: "Río" },
+    { n: "lunaticx",      hp: 15, bio: "Taiga nevada" },
+    { n: "ObreroMayor",   hp: 20, bio: "Sabana" }
+  ];
+  players.forEach(function (p, i) {
+    p.x = (hash2(i, 3, 11) - 0.5) * 2 * WORLD * 0.8;
+    p.z = (hash2(i, 9, 23) - 0.5) * 2 * WORLD * 0.8;
+    p.a = hash2(i, 5, 31) * Math.PI * 2;
+    p.s = 2.2 + hash2(i, 7, 47) * 3.4;
+    p.c = SKIN[i % SKIN.length];
+    p.hot = false;
+  });
+
+  var MARKERS = [
+    { t: "base", n: "Fortaleza Yunque",  x: -1840, z: 700 },
+    { t: "base", n: "Puerto Cobre",      x: 1420,  z: -980 },
+    { t: "base", n: "Los Silos",         x: -420,  z: -1760 },
+    { t: "base", n: "Cresta Roja",       x: 2180,  z: 1240 },
+    { t: "warp", n: "Spawn",             x: 0,     z: 0 },
+    { t: "warp", n: "Estación Central",  x: 128,   z: -64 },
+    { t: "warp", n: "Mercado Sur",       x: -260,  z: 1580 },
+    { t: "shop", n: "Herrería Nerea",    x: 340,   z: -210 },
+    { t: "shop", n: "Bazar del Cruce",   x: -910,  z: -340 },
+    { t: "shop", n: "Granos & Cía",      x: 760,   z: 880 },
+    { t: "shop", n: "Redstone Barata",   x: -1320, z: 1460 }
+  ];
+  var filters = { base: true, warp: true, shop: true };
+  [["mk-base", "base"], ["mk-warp", "warp"], ["mk-shop", "shop"]].forEach(function (pair) {
+    document.getElementById(pair[0]).addEventListener("change", function (e) {
+      filters[pair[1]] = e.target.checked;
+    });
+  });
+
+  function wx(x) { return (x + WORLD) / (WORLD * 2) * W; }
+  function wz(z) { return (z + WORLD) / (WORLD * 2) * H; }
+
+  /* ── Lista lateral de jugadores ───────────────────────────────── */
+  var list = document.getElementById("playerList");
+  function buildList() {
+    list.textContent = "";
+    players.forEach(function (p, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "prow";
+      b.dataset.i = String(i);
+
+      var sk = document.createElement("span");
+      sk.className = "skin";
+      sk.style.background = p.c;
+      sk.style.boxShadow = "inset 0 -9px 0 rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,255,255,.06)";
+
+      var mid = document.createElement("span");
+      mid.style.minWidth = "0";
+      var nm = document.createElement("span");
+      nm.className = "pname";
+      nm.textContent = p.n;
+      prepararRebote(nm);
+      var co = document.createElement("span");
+      co.className = "pcoord";
+      co.dataset.co = String(i);
+      co.style.display = "block";
+      mid.appendChild(nm); mid.appendChild(co);
+
+      var hrt = document.createElement("span");
+      hrt.className = "hearts";
+      for (var h = 0; h < 10; h++) {
+        var s = document.createElement("i");
+        s.className = "heart" + (h * 2 < p.hp ? "" : " off");
+        hrt.appendChild(s);
+      }
+
+      b.appendChild(sk); b.appendChild(mid); b.appendChild(hrt);
+      b.addEventListener("mouseenter", function () { p.hot = true; b.classList.add("is-hot"); });
+      b.addEventListener("mouseleave", function () { p.hot = false; b.classList.remove("is-hot"); });
+      b.addEventListener("focus", function () { p.hot = true; b.classList.add("is-hot"); });
+      b.addEventListener("blur", function () { p.hot = false; b.classList.remove("is-hot"); });
+      list.appendChild(b);
+    });
+  }
+
+  var coordEls = null;
+  function refreshCoords() {
+    if (!coordEls) coordEls = list.querySelectorAll("[data-co]");
+    coordEls.forEach(function (el) {
+      var p = players[+el.dataset.co];
+      el.textContent = Math.round(p.x) + ", " + Math.round(p.z) + " · " + p.bio;
+    });
+  }
+
+  /* ── Dimensiones ──────────────────────────────────────────────── */
+  document.querySelectorAll(".dims button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".dims button").forEach(function (o) {
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+      dim = b.dataset.dim;
+      drawTerrain();
+    });
+  });
+
+  /* ── Lectura de coordenadas bajo el cursor ────────────────────── */
+  var curX = document.getElementById("curX"), curZ = document.getElementById("curZ"), curChunk = document.getElementById("curChunk");
+  canvas.addEventListener("mousemove", function (e) {
+    var r = canvas.getBoundingClientRect();
+    var x = Math.round((e.clientX - r.left) / r.width * WORLD * 2 - WORLD);
+    var z = Math.round((e.clientY - r.top) / r.height * WORLD * 2 - WORLD);
+    curX.textContent = x; curZ.textContent = z;
+    curChunk.textContent = (x >> 4) + ", " + (z >> 4);
+  });
+  canvas.addEventListener("mouseleave", function () {
+    curX.textContent = "—"; curZ.textContent = "—"; curChunk.textContent = "—";
+  });
+
+  /* ── Render ───────────────────────────────────────────────────── */
+  function resizeCanvas() {
+    var r = canvas.parentElement.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawTerrain();
+  }
+
+  function drawMarker(m) {
+    var x = wx(m.x), y = wz(m.z);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 4;
+    if (m.t === "base") {
+      ctx.fillStyle = "#e0913f";
+      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.fill();
+    } else if (m.t === "warp") {
+      ctx.strokeStyle = "#58a894"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, 4.2, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.fillStyle = "#6f8fc4";
+      ctx.fillRect(x - 3.4, y - 3.4, 6.8, 6.8);
+    }
+    ctx.restore();
+    ctx.font = "500 11px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = "rgba(233,229,220,.5)";
+    ctx.textAlign = "center";
+    ctx.fillText(m.n, x, y + 16);
+  }
+
+  function drawPlayer(p) {
+    var x = wx(p.x), y = wz(p.z);
+
+    // cono de visión — el dato que diferencia un visor vivo de una captura
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(p.a);
+    var g = ctx.createLinearGradient(0, 0, 0, -34);
+    g.addColorStop(0, "rgba(224,145,63,.26)");
+    g.addColorStop(1, "rgba(224,145,63,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 34, -Math.PI / 2 - 0.42, -Math.PI / 2 + 0.42); ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    if (p.hot) {
+      ctx.strokeStyle = "rgba(224,145,63,.85)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,.7)"; ctx.shadowBlur = 5;
+    ctx.fillStyle = p.c;
+    ctx.fillRect(x - 5, y - 5, 10, 10);
+    ctx.restore();
+    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1;
+    ctx.strokeRect(x - 5.5, y - 5.5, 11, 11);
+
+    ctx.font = "500 12px 'IBM Plex Sans', sans-serif";
+    ctx.textAlign = "center";
+    var w = ctx.measureText(p.n).width;
+    ctx.fillStyle = "rgba(11,14,19,.8)";
+    ctx.fillRect(x - w / 2 - 5, y - 25, w + 10, 15);
+    ctx.fillStyle = p.hot ? "#f2b673" : "#e9e5dc";
+    ctx.fillText(p.n, x, y - 14);
+  }
+
+  var last = 0, tick = 0;
+  function frame(ts) {
+    if (!W) { requestAnimationFrame(frame); return; }
+    var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
+    last = ts;
+
+    players.forEach(function (p, i) {
+      p.a += (noise(ts / 4000 + i * 3, i, 5) - 0.5) * dt * 2.4;
+      p.x += Math.sin(p.a) * p.s * dt * 26;
+      p.z -= Math.cos(p.a) * p.s * dt * 26;
+      var lim = WORLD * 0.93;
+      if (p.x > lim || p.x < -lim || p.z > lim || p.z < -lim) {
+        p.a += Math.PI;
+        p.x = Math.max(-lim, Math.min(lim, p.x));
+        p.z = Math.max(-lim, Math.min(lim, p.z));
+      }
+    });
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(terrain, 0, 0, W, H);
+    MARKERS.forEach(function (m) { if (filters[m.t]) drawMarker(m); });
+    players.forEach(drawPlayer);
+
+    tick += dt;
+    if (tick > 1) { tick = 0; refreshCoords(); }
+    if (!reduce) requestAnimationFrame(frame);
+  }
+
+  function startMap() {
+    buildList();
+    aplicarRebote(list);
+    resizeCanvas();
+    refreshCoords();
+    if (reduce) {
+      // sin movimiento: un solo fotograma completo
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(terrain, 0, 0, W, H);
+      MARKERS.forEach(function (m) { if (filters[m.t]) drawMarker(m); });
+      players.forEach(drawPlayer);
+    } else {
+      requestAnimationFrame(frame);
+    }
+  }
+
+  window.addEventListener("resize", function () {
+    if (document.getElementById("view-mapa").classList.contains("is-active")) resizeCanvas();
+  });
+
+  /* ── Arranque del rebote en el contenido estatico ─────────────── */
+  document.querySelectorAll(".rel small").forEach(prepararRebote);
+  aplicarRebote();
+  window.addEventListener("resize", function () { aplicarRebote(); });
+
+  /* ── Latido del estado del servidor ───────────────────────────── */
+  if (!reduce) {
+    setInterval(function () {
+      var t = (19.6 + Math.random() * 0.4).toFixed(1);
+      document.getElementById("tps").textContent = t;
+      document.getElementById("lag").textContent = String(1 + (Math.random() < 0.2 ? 1 : 0));
+    }, 3000);
+  }
+})();
+</script>
