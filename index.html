@@ -104,24 +104,32 @@
 
   .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 
-  /* ─── Shell ──────────────────────────────────────────────────────── */
-  .app {
-    display: grid;
-    grid-template-columns: 216px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas: "brand status" "rail stage";
-    min-height: 100dvh;
+  /* ─── Shell ────────────────────────────────────────────────────────
+     Cabecera de dos pisos a todo el ancho:
+       piso 1 · marca y estado del servidor a la izquierda, la IP a la derecha
+       piso 2 · el menú, en pestañas
+
+     Sacar el menú del lateral devuelve los 216 px de la columna al contenido.
+     Es justo lo que le faltaba al mapa y a la rejilla de la tienda. */
+  .app { min-height: 100dvh; display: flex; flex-direction: column; }
+
+  .topbar {
+    position: sticky; top: 0;
+    /* Los controles de Leaflet viven en z-index 1000; la cabecera va encima. */
+    z-index: 1200;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .topbar-info {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    padding: 9px 20px;
+    border-bottom: 1px solid var(--line-soft);
   }
 
   .brand {
-    grid-area: brand;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 18px;
-    border-right: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    background: var(--surface);
+    display: flex; align-items: center; gap: 10px;
+    margin-right: 4px; text-decoration: none;
   }
   .brand-mark {
     width: 26px; height: 26px;
@@ -139,21 +147,11 @@
     font-weight: 700;
     font-size: 16px;
     letter-spacing: 0.02em;
+    color: var(--ink);
     text-shadow: var(--pixel-shadow);
   }
   .brand-name span { color: var(--ink-faint); font-weight: 600; }
 
-  /* status strip */
-  .status {
-    grid-area: status;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-    padding: 10px 20px;
-    border-bottom: 1px solid var(--line);
-    background: var(--surface);
-  }
   .stat { display: flex; align-items: baseline; gap: 7px; font-size: 14px; }
   .stat-k { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
   .stat-v { font-family: var(--f-mono); font-size: 14px; font-variant-numeric: tabular-nums; color: var(--ink); }
@@ -173,88 +171,57 @@
 
   .ip {
     margin-left: auto;
-    display: flex; align-items: center; gap: 0;
+    display: flex; align-items: center;
     border: 1px solid var(--line);
     border-radius: var(--r-md);
     overflow: hidden;
     background: var(--bg);
   }
-  .ip code {
-    font-family: var(--f-mono);
-    font-size: 14px;
-    padding: 6px 11px;
-    color: var(--amber-ink);
-  }
+  .ip code { font-family: var(--f-mono); font-size: 14px; padding: 6px 11px; color: var(--amber-ink); }
   .ip button {
-    font-family: var(--f-mono);
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-family: var(--f-mono); font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
     padding: 7px 11px;
-    border: 0;
-    border-left: 1px solid var(--line);
-    background: var(--surface-2);
-    color: var(--ink-dim);
-    cursor: pointer;
+    border: 0; border-left: 1px solid var(--line);
+    background: var(--surface-2); color: var(--ink-dim); cursor: pointer;
   }
   .ip button:hover { background: var(--raised); color: var(--ink); }
 
-  /* rail */
-  .rail {
-    grid-area: rail;
-    border-right: 1px solid var(--line);
-    background: var(--surface);
-    padding: 14px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  /* menú en pestañas */
+  .menu {
+    display: flex; gap: 2px;
+    padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .rail-label {
-    font-family: var(--f-mono);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    padding: 14px 10px 6px;
-  }
-  .rail button {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    width: 100%;
-    padding: 9px 10px;
+  .menu::-webkit-scrollbar { display: none; }
+  .menu button {
+    display: flex; align-items: center; gap: 9px;
+    padding: 11px 14px 9px;
     border: 0;
-    border-radius: var(--r-md);
+    /* El subrayado se come el borde de la cabecera, así que la pestaña activa
+       queda cosida al contenido en vez de flotando sobre él. */
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
     background: none;
     color: var(--ink-dim);
-    font-family: var(--f-body);
-    font-size: 15.5px;
-    font-weight: 500;
-    text-align: left;
-    cursor: pointer;
+    font-family: var(--f-body); font-size: 15.5px; font-weight: 500;
+    white-space: nowrap; cursor: pointer;
   }
-  .rail button svg { flex: none; opacity: .8; }
-  .rail button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
-  .rail button[aria-current="page"] {
-    background: var(--surface-2);
-    color: var(--ink);
-    box-shadow: inset 2px 0 0 var(--amber);
-  }
-  .rail button[aria-current="page"] svg { opacity: 1; color: var(--amber); }
-  .rail button:disabled { color: var(--ink-faint); cursor: default; opacity: .55; }
+  .menu button svg { flex: none; opacity: .8; }
+  .menu button:hover:not(:disabled) { color: var(--ink); }
+  .menu button[aria-current="page"] { color: var(--ink); border-bottom-color: var(--amber); }
+  .menu button[aria-current="page"] svg { opacity: 1; color: var(--amber); }
+  .menu button:disabled { color: var(--ink-faint); cursor: default; opacity: .5; }
   .soon {
-    margin-left: auto;
-    font-family: var(--f-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-family: var(--f-mono); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
     color: var(--ink-faint);
-    border: 1px solid var(--line);
-    border-radius: 2px;
+    border: 1px solid var(--line); border-radius: 2px;
     padding: 1px 4px;
   }
 
-  .stage { grid-area: stage; min-width: 0; }
+  .stage { flex: 1; min-width: 0; }
   .view { display: none; }
   .view.is-active { display: block; }
 
@@ -441,7 +408,7 @@
   .map-view {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 296px;
-    height: calc(100dvh - 51px);
+    height: calc(100dvh - var(--header-h, 90px));
     min-height: 540px;
   }
   .canvas-wrap { position: relative; overflow: hidden; background: #0b0e13; }
@@ -608,6 +575,139 @@
   .hist-stats div { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
   .hist-stats b { font-family: var(--f-mono); font-size: 24px; font-weight: 600; color: var(--amber-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
+  /* ─── View: Tienda ───────────────────────────────────────────────── */
+  .shop { padding: 28px 34px 64px; max-width: 1180px; display: flex; flex-direction: column; gap: 28px; }
+
+  /* Aviso del EULA. No es letra pequeña: es el argumento de venta. Mojang
+     prohíbe vender ventaja de juego, y decirlo en alto distingue a un servidor
+     serio de uno que va a cerrar. */
+  .notice {
+    display: flex; gap: 12px; align-items: flex-start;
+    border: 1px solid rgba(88,168,148,.28);
+    border-left: 3px solid var(--copper);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    background: rgba(88,168,148,.05);
+    padding: 15px 18px;
+    max-width: 78ch;
+    font-size: 14.5px;
+    color: var(--ink-dim);
+  }
+  .notice b { color: var(--copper); font-weight: 600; }
+  .notice svg { flex: none; margin-top: 3px; }
+
+  .ranks { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 16px; align-items: stretch; }
+  .rank {
+    display: flex; flex-direction: column; gap: 15px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    padding: 20px 18px;
+  }
+  .rank.is-top {
+    border-color: rgba(224,145,63,.45);
+    background: linear-gradient(180deg, rgba(224,145,63,.07), transparent 140px), var(--surface);
+  }
+  .rank-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rank-price { display: flex; align-items: baseline; gap: 7px; }
+  .rank-price b {
+    font-family: var(--f-mono); font-size: 28px; font-weight: 600;
+    color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .rank.is-top .rank-price b { color: var(--amber-ink); }
+  .rank-price span { font-size: 13px; color: var(--ink-faint); }
+
+  .perks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; font-size: 14.5px; color: var(--ink-dim); }
+  .perks li { display: grid; grid-template-columns: 7px minmax(0,1fr); gap: 11px; align-items: baseline; }
+  /* Cuadrado, no palomita: el resto de la interfaz ya es de píxeles. */
+  .perks i { width: 7px; height: 7px; background: var(--amber); }
+  .perks li.is-inherited i { background: var(--line); }
+  .perks b { color: var(--ink); font-weight: 600; }
+
+  .buy {
+    margin-top: auto;
+    width: 100%; padding: 11px 14px;
+    border: 1px solid var(--line); border-radius: var(--r-md);
+    background: var(--surface-2); color: var(--ink);
+    font-family: var(--f-display); font-size: 16px;
+    text-shadow: var(--pixel-shadow);
+    cursor: pointer;
+  }
+  .buy:hover { background: var(--raised); }
+  .rank.is-top .buy { background: var(--amber); color: #16110a; border-color: var(--amber); text-shadow: none; }
+  .rank.is-top .buy:hover { background: var(--amber-ink); }
+
+  .goods {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden;
+  }
+  .good { background: var(--surface); padding: 13px; display: flex; flex-direction: column; gap: 9px; }
+  /* Marcador del render del ítem: tablero de ajedrez en el tono de su familia,
+     para que se lea como «aquí va la imagen» y no como un icono definitivo. */
+  .good-art {
+    height: 68px; border-radius: 3px;
+    display: grid; place-items: center;
+    background:
+      repeating-conic-gradient(var(--art) 0% 25%, transparent 0% 50%) 0 0 / 14px 14px,
+      var(--surface-2);
+  }
+  .good-art i { width: 20px; height: 20px; background: var(--art); }
+  .good-art i.d { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .good-art i.c { border-radius: 50%; }
+  .good-name { font-size: 14.5px; font-weight: 500; color: var(--ink); }
+  .good-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .good-price { font-family: var(--f-mono); font-size: 14px; color: var(--amber-ink); font-variant-numeric: tabular-nums; }
+
+  .howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+  .howto div { display: flex; flex-direction: column; gap: 5px; }
+  .howto b { font-family: var(--f-mono); font-size: 13px; color: var(--amber); letter-spacing: 0.1em; }
+  .howto p { margin: 0; font-size: 14px; color: var(--ink-dim); }
+
+  /* ─── View: Perfil ───────────────────────────────────────────────── */
+  .profile { padding: 28px 34px 64px; max-width: 1080px; display: flex; flex-direction: column; gap: 26px; }
+
+  .pf-head { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .pf-skin {
+    width: 84px; height: 84px; flex: none; border-radius: 3px;
+    image-rendering: pixelated;
+    background: #8b6b4a;
+    box-shadow: inset 0 -28px 0 rgba(0,0,0,.22), inset 0 0 0 2px rgba(255,255,255,.07);
+  }
+  .pf-id { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  .pf-meta { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  .pf-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+    gap: 1px; background: var(--line);
+    border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden;
+  }
+  .pf-stats div { background: var(--surface); padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+  .pf-stats b {
+    font-family: var(--f-mono); font-size: 22px; font-weight: 600;
+    color: var(--amber-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+
+  .pf-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; align-items: start; }
+
+  .pf-list { display: flex; flex-direction: column; gap: 1px; }
+  .pf-row {
+    display: grid; grid-template-columns: 30px minmax(0,1fr) auto;
+    gap: 12px; align-items: center;
+    padding: 9px 10px; border-radius: var(--r-sm);
+  }
+  .pf-row:hover { background: var(--surface-2); }
+  .pf-row .glyph-box { width: 30px; height: 30px; border-radius: 3px; display: grid; place-items: center; background: var(--surface-2); }
+  .pf-row .glyph-box i { width: 11px; height: 11px; }
+  .pf-row strong { display: block; font-size: 14.5px; font-weight: 500; color: var(--ink); }
+  .pf-row small { display: block; font-size: 12.5px; color: var(--ink-faint); }
+  .pf-row .go {
+    font-family: var(--f-mono); font-size: 12px; color: var(--ink-faint);
+    border: 1px solid var(--line); border-radius: var(--r-sm);
+    padding: 3px 8px; background: none; cursor: pointer; white-space: nowrap;
+  }
+  .pf-row .go:hover { color: var(--amber-ink); border-color: rgba(224,145,63,.4); }
+  .pf-amount { font-family: var(--f-mono); font-size: 14px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
   /* ─── Responsive ─────────────────────────────────────────────────── */
   @media (max-width: 1180px) {
     .body-grid { grid-template-columns: minmax(0, 1fr); }
@@ -615,23 +715,18 @@
     .aside > * { flex: 1 1 280px; }
   }
   @media (max-width: 980px) {
-    .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "brand" "status" "rail" "stage"; }
-    .brand, .rail { border-right: 0; }
-    .rail {
-      flex-direction: row;
-      overflow-x: auto;
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--line);
-      gap: 4px;
-    }
-    .rail-label, .rail button:disabled { display: none; }
-    .rail button { width: auto; white-space: nowrap; }
+    .menu button:disabled { display: none; }
+    .menu button { padding: 10px 11px 8px; font-size: 15px; }
+    .topbar-info { gap: 14px; }
     .wiki { grid-template-columns: minmax(0, 1fr); }
     .index { position: static; border-right: 0; border-bottom: 1px solid var(--line); }
     .map-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: 58dvh minmax(0, 1fr); height: auto; }
     .map-side { border-left: 0; border-top: 1px solid var(--line); }
-    .article, .hist { padding: 22px 18px 56px; }
-    .status { padding: 10px 18px; }
+    .article, .hist, .shop, .profile { padding: 22px 18px 56px; }
+    .topbar-info { padding: 9px 18px; }
+  }
+  @media (max-width: 900px) {
+    .pf-grid { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 560px) {
     .era { grid-template-columns: minmax(0, 1fr); }
@@ -653,52 +748,31 @@
 </style>
 
 <div class="app">
-  <div class="brand">
-    <div class="brand-mark" aria-hidden="true">N</div>
-    <div class="brand-name">NÚCLEO <span>SMP</span></div>
-  </div>
-
-  <div class="status">
-    <div class="stat"><span class="pulse" aria-hidden="true"></span><span class="stat-v" id="onlineCount">34</span><span class="stat-k">/ 120 conectados</span></div>
-    <div class="stat"><span class="stat-k">TPS</span><span class="stat-v" id="tps">19.9</span></div>
-    <div class="stat"><span class="stat-k">MSPT</span><span class="stat-v">31.4</span></div>
-    <div class="stat"><span class="stat-k">Modpack</span><span class="stat-v">Núcleo v2.4.1</span></div>
-    <div class="stat"><span class="stat-k">NeoForge</span><span class="stat-v">1.21.1</span></div>
-    <div class="ip">
-      <code>play.nucleo.gg</code>
-      <button type="button" id="copyIp">Copiar</button>
+  <header class="topbar" id="topbar">
+    <div class="topbar-info">
+      <a class="brand" href="#" onclick="return false">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span class="brand-name">NÚCLEO <span>SMP</span></span>
+      </a>
+      <div class="stat"><span class="pulse" aria-hidden="true"></span><span class="stat-v" id="onlineCount">34</span><span class="stat-k">/ 120 conectados</span></div>
+      <div class="stat"><span class="stat-k">TPS</span><span class="stat-v" id="tps">19.9</span></div>
+      <div class="stat"><span class="stat-k">Modpack</span><span class="stat-v">Núcleo v2.4.1</span></div>
+      <div class="stat"><span class="stat-k">NeoForge</span><span class="stat-v">1.21.1</span></div>
+      <div class="ip">
+        <code>play.nucleo.gg</code>
+        <button type="button" id="copyIp">Copiar</button>
+      </div>
     </div>
-  </div>
 
-  <nav class="rail" aria-label="Secciones del sitio">
-    <div class="rail-label">Servidor</div>
-    <button type="button" data-view="wiki" aria-current="page">
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.2v9.6c0 0 1.8-1 5.5-1V2.2c-3.7 0-5.5 1-5.5 1Z"/><path d="M13.5 3.2v9.6c0 0-1.8-1-5.5-1V2.2c3.7 0 5.5 1 5.5 1Z"/></svg>
-      Wiki de mods
-    </button>
-    <button type="button" data-view="mapa">
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m1.8 4 4.2-1.8L10 4l4.2-1.8v9.8L10 13.8 6 12 1.8 13.8V4Z"/><path d="M6 2.2V12M10 4v9.8"/></svg>
-      Mapa en vivo
-    </button>
-    <button type="button" data-view="historia">
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.3 1.6"/></svg>
-      Historia
-    </button>
-
-    <div class="rail-label">Próximamente</div>
-    <button type="button" disabled>
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.6 4.4h10.8l-1 7.4a1.4 1.4 0 0 1-1.4 1.2H5a1.4 1.4 0 0 1-1.4-1.2l-1-7.4Z"/><path d="M5.8 6.4V4a2.2 2.2 0 0 1 4.4 0v2.4"/></svg>
-      Tienda <span class="soon">v2</span>
-    </button>
-    <button type="button" disabled>
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m8 2 1.8 3.9 4.2.5-3.1 2.9.8 4.2L8 11.5 4.3 13.5l.8-4.2L2 6.4l4.2-.5L8 2Z"/></svg>
-      Votaciones <span class="soon">v2</span>
-    </button>
-    <button type="button" disabled>
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5.6" r="2.6"/><path d="M2.8 13.6a5.2 5.2 0 0 1 10.4 0"/></svg>
-      Mi perfil <span class="soon">v3</span>
-    </button>
-  </nav>
+    <nav class="menu" aria-label="Secciones del sitio">
+      <button type="button" data-view="wiki" aria-current="page"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.2v9.6c0 0 1.8-1 5.5-1V2.2c-3.7 0-5.5 1-5.5 1Z"/><path d="M13.5 3.2v9.6c0 0-1.8-1-5.5-1V2.2c3.7 0 5.5 1 5.5 1Z"/></svg> Wiki de mods</button>
+      <button type="button" data-view="mapa"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m1.8 4 4.2-1.8L10 4l4.2-1.8v9.8L10 13.8 6 12 1.8 13.8V4Z"/><path d="M6 2.2V12M10 4v9.8"/></svg> Mapa en vivo</button>
+      <button type="button" data-view="historia"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.3 1.6"/></svg> Historia</button>
+      <button type="button" data-view="tienda"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 4.4h10.8l-1 7.4a1.4 1.4 0 0 1-1.4 1.2H5a1.4 1.4 0 0 1-1.4-1.2l-1-7.4Z"/><path d="M5.8 6.4V4a2.2 2.2 0 0 1 4.4 0v2.4"/></svg> Tienda</button>
+      <button type="button" data-view="perfil"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5.6" r="2.6"/><path d="M2.8 13.6a5.2 5.2 0 0 1 10.4 0"/></svg> Mi perfil</button>
+      <button type="button" disabled><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.8 3.9 4.2.5-3.1 2.9.8 4.2L8 11.5 4.3 13.5l.8-4.2L2 6.4l4.2-.5L8 2Z"/></svg> Votaciones <span class="soon">v3</span></button>
+    </nav>
+  </header>
 
   <main class="stage">
 
@@ -1039,6 +1113,225 @@
       </div>
     </section>
 
+
+    <!-- ═══ VISTA 4 · TIENDA ═════════════════════════════════════════ -->
+    <section class="view" id="view-tienda" aria-label="Tienda">
+      <div class="shop">
+        <header class="mod-head">
+          <div class="eyebrow">Tienda del servidor · entrega automática</div>
+          <h1>Tienda</h1>
+          <p class="lede">
+            Lo que compras aquí mantiene el servidor encendido: los 40 € al mes del VPS,
+            las copias de seguridad y el dominio. No hay inversores detrás, solo nosotros.
+          </p>
+        </header>
+
+        <div class="notice">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--copper)" stroke-width="1.5" stroke-linecap="round"><path d="M8 1.8 13.6 4v4c0 3.2-2.3 5.4-5.6 6.2C4.7 13.4 2.4 11.2 2.4 8V4L8 1.8Z"/><path d="m5.8 8 1.6 1.6 3-3.4"/></svg>
+          <span>
+            <b>Nada de lo que vendemos da ventaja en el juego.</b> Ni objetos, ni recursos,
+            ni comandos que afecten al mundo de otros. Es la norma de Mojang y además es lo
+            que queremos: un servidor donde pagar te distinga, no te haga ganar. Todo lo de
+            abajo es cosmético o de comodidad.
+          </span>
+        </div>
+
+        <section style="display:flex;flex-direction:column;gap:14px">
+          <h2>Rangos</h2>
+          <div class="ranks">
+            <div class="rank">
+              <div class="rank-top"><h3>Colono</h3></div>
+              <div class="rank-price"><b>4,99 €</b><span>pago único</span></div>
+              <ul class="perks">
+                <li><i></i><span>Prefijo <b>[Colono]</b> en el chat</span></li>
+                <li><i></i><span><b>3 hogares</b> en vez de 1</span></li>
+                <li><i></i><span>Partículas básicas y <span class="mono" style="font-size:13.5px">/sombrero</span></span></li>
+                <li><i></i><span>Cola prioritaria cuando el servidor está lleno</span></li>
+              </ul>
+              <button class="buy" type="button">Comprar</button>
+            </div>
+
+            <div class="rank is-top">
+              <div class="rank-top"><h3>Artesano</h3><span class="chip chip-amber">El más elegido</span></div>
+              <div class="rank-price"><b>9,99 €</b><span>pago único</span></div>
+              <ul class="perks">
+                <li class="is-inherited"><i></i><span>Todo lo de Colono</span></li>
+                <li><i></i><span><b>6 hogares</b></span></li>
+                <li><i></i><span>Color de chat a elegir</span></li>
+                <li><i></i><span>Tres mascotas cosméticas que te siguen</span></li>
+                <li><i></i><span>Apodo con <span class="mono" style="font-size:13.5px">/apodo</span></span></li>
+              </ul>
+              <button class="buy" type="button">Comprar</button>
+            </div>
+
+            <div class="rank">
+              <div class="rank-top"><h3>Arquitecto</h3></div>
+              <div class="rank-price"><b>19,99 €</b><span>pago único</span></div>
+              <ul class="perks">
+                <li class="is-inherited"><i></i><span>Todo lo de Artesano</span></li>
+                <li><i></i><span><b>12 hogares</b></span></li>
+                <li><i></i><span>Entras <b>48 h antes</b> en cada temporada nueva</span></li>
+                <li><i></i><span>Guardas <b>10 construcciones</b> entre temporadas</span></li>
+                <li><i></i><span>Canal propio en el Discord</span></li>
+              </ul>
+              <button class="buy" type="button">Comprar</button>
+            </div>
+          </div>
+        </section>
+
+        <section style="display:flex;flex-direction:column;gap:14px">
+          <h2>Cosméticos sueltos</h2>
+          <div class="goods">
+            <div class="good" style="--art:rgba(224,145,63,.18)">
+              <div class="good-art"><i style="background:var(--amber)"></i></div>
+              <span class="good-name">Estela de brasas</span>
+              <div class="good-foot"><small style="font-size:12.5px;color:var(--ink-faint)">Partícula</small><span class="good-price">2,49 €</span></div>
+            </div>
+            <div class="good" style="--art:rgba(88,168,148,.18)">
+              <div class="good-art"><i class="c" style="background:var(--copper)"></i></div>
+              <span class="good-name">Allay dorado</span>
+              <div class="good-foot"><small style="font-size:12.5px;color:var(--ink-faint)">Mascota</small><span class="good-price">3,99 €</span></div>
+            </div>
+            <div class="good" style="--art:rgba(154,128,201,.18)">
+              <div class="good-art"><i class="d" style="background:var(--end)"></i></div>
+              <span class="good-name">Alas del End</span>
+              <div class="good-foot"><small style="font-size:12.5px;color:var(--ink-faint)">Capa</small><span class="good-price">4,99 €</span></div>
+            </div>
+            <div class="good" style="--art:rgba(196,85,63,.18)">
+              <div class="good-art"><i style="background:var(--nether)"></i></div>
+              <span class="good-name">Casco de netherita ornamental</span>
+              <div class="good-foot"><small style="font-size:12.5px;color:var(--ink-faint)">Sombrero</small><span class="good-price">1,99 €</span></div>
+            </div>
+            <div class="good" style="--art:rgba(111,143,196,.18)">
+              <div class="good-art"><i class="c" style="background:#6f8fc4"></i></div>
+              <span class="good-name">Cambio de nombre</span>
+              <div class="good-foot"><small style="font-size:12.5px;color:var(--ink-faint)">Comodidad</small><span class="good-price">2,99 €</span></div>
+            </div>
+            <div class="good" style="--art:rgba(181,133,79,.18)">
+              <div class="good-art"><i class="d" style="background:#b5854f"></i></div>
+              <span class="good-name">Placa de nombre grabada</span>
+              <div class="good-foot"><small style="font-size:12.5px;color:var(--ink-faint)">Cosmético</small><span class="good-price">1,49 €</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section style="display:flex;flex-direction:column;gap:14px">
+          <h2>Cómo funciona</h2>
+          <div class="howto">
+            <div>
+              <b>01 · PAGAS</b>
+              <p>El cobro lo gestiona Tebex, no nosotros. Tus datos de pago no pasan por esta web en ningún momento.</p>
+            </div>
+            <div>
+              <b>02 · ENTREGA</b>
+              <p>El rango aparece en menos de dos minutos. Si estás conectado, sin salir del juego.</p>
+            </div>
+            <div>
+              <b>03 · PARA SIEMPRE</b>
+              <p>Los rangos no caducan ni se pierden al cambiar de temporada. Se pagan una vez.</p>
+            </div>
+          </div>
+          <p style="margin:0;font-size:14px;color:var(--ink-faint);max-width:70ch">
+            Precios con IVA incluido. Devolución dentro de los 14 días siguientes si no has
+            usado el rango, escribiendo a <a href="#">soporte@nucleo.gg</a>.
+          </p>
+        </section>
+      </div>
+    </section>
+
+    <!-- ═══ VISTA 5 · PERFIL ═════════════════════════════════════════ -->
+    <section class="view" id="view-perfil" aria-label="Mi perfil">
+      <div class="profile">
+        <header class="pf-head">
+          <div class="pf-skin" aria-hidden="true"></div>
+          <div class="pf-id">
+            <div class="eyebrow">Tu perfil · sesión iniciada con Discord</div>
+            <h1>Aritz_</h1>
+            <div class="pf-meta">
+              <span class="chip chip-amber">Arquitecto</span>
+              <span class="chip">Miembro desde feb 2024</span>
+              <span class="chip chip-copper">Conectado ahora · Overworld</span>
+              <span class="chip">Discord @aritz_</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="pf-stats">
+          <div><b>412 h</b><span class="eyebrow">jugadas</span></div>
+          <div><b>1,28 M</b><span class="eyebrow">bloques colocados</span></div>
+          <div><b>847 km</b><span class="eyebrow">recorridos</span></div>
+          <div><b>89</b><span class="eyebrow">muertes</span></div>
+          <div><b>4 / 4</b><span class="eyebrow">temporadas</span></div>
+        </div>
+
+        <div class="pf-grid">
+          <section style="display:flex;flex-direction:column;gap:12px">
+            <h2>Tus bases</h2>
+            <div class="pf-list">
+              <div class="pf-row">
+                <span class="glyph-box"><i style="background:var(--amber);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></i></span>
+                <span><strong>Fortaleza Yunque</strong><small>Overworld · X −1840 · Z 700</small></span>
+                <button class="go" type="button" data-goto="mapa">Ver en el mapa</button>
+              </div>
+              <div class="pf-row">
+                <span class="glyph-box"><i style="background:var(--nether);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></i></span>
+                <span><strong>Fortaleza de Cuarzo</strong><small>Nether · X −230 · Z 118</small></span>
+                <button class="go" type="button" data-goto="mapa">Ver en el mapa</button>
+              </div>
+              <div class="pf-row">
+                <span class="glyph-box"><i style="background:var(--copper);border-radius:50%"></i></span>
+                <span><strong>Taller del Cruce Norte</strong><small>Overworld · X 62 · Z −518</small></span>
+                <button class="go" type="button" data-goto="mapa">Ver en el mapa</button>
+              </div>
+            </div>
+            <p style="margin:0;font-size:13px;color:var(--ink-faint)">
+              Tu rango te permite 12 hogares. Llevas 3.
+            </p>
+          </section>
+
+          <section style="display:flex;flex-direction:column;gap:12px">
+            <h2>Avances recientes</h2>
+            <div class="pf-list">
+              <div class="pf-row">
+                <span class="glyph-box"><i style="background:#b5854f"></i></span>
+                <span><strong>Vía libre</strong><small>Colocar 1 000 bloques de raíl · 22 ago 2026</small></span>
+              </div>
+              <div class="pf-row">
+                <span class="glyph-box"><i style="background:var(--nether)"></i></span>
+                <span><strong>Sobrepresión</strong><small>Reventar una red de Create por exceso de SU · 11 jul 2026</small></span>
+              </div>
+              <div class="pf-row">
+                <span class="glyph-box"><i style="background:var(--end);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)"></i></span>
+                <span><strong>El Tratado</strong><small>Estar en la firma del Portal Rojo · 11 sep 2025</small></span>
+              </div>
+            </div>
+            <p style="margin:0;font-size:13px;color:var(--ink-faint)">
+              41 de 118 avances conseguidos.
+            </p>
+          </section>
+        </div>
+
+        <section style="display:flex;flex-direction:column;gap:12px">
+          <h2>Tus compras</h2>
+          <div class="pf-list">
+            <div class="pf-row">
+              <span class="glyph-box"><i style="background:var(--amber)"></i></span>
+              <span><strong>Rango Arquitecto</strong><small>12 mar 2026 · entregado</small></span>
+              <span class="pf-amount">19,99 €</span>
+            </div>
+            <div class="pf-row">
+              <span class="glyph-box"><i style="background:var(--copper);border-radius:50%"></i></span>
+              <span><strong>Allay dorado</strong><small>04 sep 2026 · entregado</small></span>
+              <span class="pf-amount">3,99 €</span>
+            </div>
+          </div>
+          <p style="margin:0;font-size:13px;color:var(--ink-faint)">
+            Las facturas las emite Tebex y llegan a tu correo. Esta web no guarda ningún dato de pago.
+          </p>
+        </section>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -1085,12 +1378,12 @@
   }
 
   /* ── Navegación entre vistas ──────────────────────────────────── */
-  var railBtns = document.querySelectorAll(".rail button[data-view]");
+  var menuBtns = document.querySelectorAll(".menu button[data-view]");
   var views = document.querySelectorAll(".view");
   var mapStarted = false;
 
   function show(name) {
-    railBtns.forEach(function (b) {
+    menuBtns.forEach(function (b) {
       if (b.dataset.view === name) b.setAttribute("aria-current", "page");
       else b.removeAttribute("aria-current");
     });
@@ -1099,9 +1392,25 @@
     if (name === "mapa") resizeCanvas();
     aplicarRebote();
   }
-  railBtns.forEach(function (b) {
+  menuBtns.forEach(function (b) {
     b.addEventListener("click", function () { show(b.dataset.view); });
   });
+
+  /* ── Saltos a otra vista desde dentro del contenido ───────────── */
+  document.querySelectorAll("[data-goto]").forEach(function (b) {
+    b.addEventListener("click", function () { show(b.dataset.goto); });
+  });
+
+  /* ── Alto real de la cabecera ─────────────────────────────────────
+     El mapa ocupa la pantalla menos la cabecera, y la cabecera cambia de
+     alto cuando la fila de estado envuelve. Medirla es mas fiable que
+     cablear un numero que dejaria de ser cierto en cuanto se estreche. */
+  var topbar = document.getElementById("topbar");
+  function medirCabecera() {
+    document.documentElement.style.setProperty("--header-h", topbar.offsetHeight + "px");
+  }
+  medirCabecera();
+  if (window.ResizeObserver) new ResizeObserver(medirCabecera).observe(topbar);
 
   /* ── Copiar IP ────────────────────────────────────────────────── */
   var copyBtn = document.getElementById("copyIp");
